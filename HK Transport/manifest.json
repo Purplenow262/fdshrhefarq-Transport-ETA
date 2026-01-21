@@ -2,6 +2,7 @@
   "name": "HK Transit",
   "short_name": "HK Bus",
   "start_url": "./index.html",
+  "scope": "."
   "display": "standalone",
   "background_color": "#f2f2f7",
   "theme_color": "#e60012",
@@ -17,4 +18,5 @@
       "type": "image/png"
     }
   ]
+
 }
