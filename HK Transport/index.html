@@ -6,7 +6,7 @@
     <title>HK Transit</title>
     
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon.jpg">
+    <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" href="icon.jpg">
     <meta name="theme-color" content="#f2f2f7">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -20,6 +20,8 @@
             --kmb-red: #e60012;
             --ctb-yellow: #f8c300; 
             --joint-grad: linear-gradient(135deg, #e60012 45%, #f8c300 55%);
+            --lwb-orange: #ff6600;
+            --joint-lwb-grad: linear-gradient(135deg, #ff6600 45%, #f8c300 55%);
         }
 
         body {
@@ -31,6 +33,9 @@
             color: #191c1a;
             -webkit-tap-highlight-color: transparent;
         }
+
+        /* Ensure full-height pages on mobile so scrolling works as expected */
+        html, body { height: 100%; }
 
         .container { max-width: 600px; margin: 0 auto; }
         
@@ -64,9 +69,9 @@
         .filter-btn.active {
             border-color: transparent; color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        .filter-btn[data-co="KMB"].active { background: var(--kmb-red); }
+        .filter-btn[data-co="KMB/LWB"].active { background: var(--kmb-red); }
         .filter-btn[data-co="CTB"].active { background: var(--ctb-yellow); color: #000; }
-        .filter-btn[data-co="MTR"].active { background: #00498C; }
+        .filter-btn[data-co="MTR"].active { background: #ac2e44; }
 
         /* --- Module B: Dashboard --- */
         .group-card {
@@ -77,6 +82,7 @@
             font-size: 18px; font-weight: 700; color: #006c4c; margin-bottom: 12px;
             display: flex; justify-content: space-between; align-items: center;
         }
+        .group-selected-summary { font-size: 12px; color: #666; margin-bottom: 8px; }
         .refresh-btn {
             background: none; border: none; font-size: 20px; color: #006c4c; cursor: pointer;
         }
@@ -85,12 +91,20 @@
         }
         .saved-stop-item:last-child { border-bottom: none; }
         .saved-route-no {
-            font-size: 18px; font-weight: 900; width: 60px; color: #191c1a; flex-shrink: 0;
+            font-size: 18px; font-weight: 900; width:72px; color: #191c1a; flex-shrink: 0; text-align: center;
         }
         .saved-info { flex-grow: 1; font-size: 14px; color: #444; line-height: 1.3; }
         .saved-dest { font-weight: 500; color: #000; }
         .saved-stop-name { font-size: 12px; color: #747775; }
-        .saved-eta { font-weight: 700; color: var(--kmb-red); font-family: monospace; font-size: 16px; text-align: right; min-width: 60px; }
+        .saved-stop-selected { font-size: 12px; color: #888; margin-top:4px; }
+        .saved-eta { display: flex; flex-direction: column; gap: 6px; text-align: right; min-width: 120px; }
+        .saved-eta-item { font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+        .saved-eta-co { font-size: 10px; font-weight: 700; padding: 2px 4px; border-radius: 3px; text-transform: uppercase; }
+        .saved-eta-co.kmb { background: #ffe0e0; color: #b30000; }
+        .saved-eta-co.ctb { background: #fff5cc; color: #806000; }
+        .saved-eta-co.lwb { background: #ffebd6; color: #cc5200; }
+        .saved-eta-time { font-family: monospace; color: #191c1a; }
+        .saved-eta-abs { font-size: 12px; color: #747775; font-weight: 400; }
         
         .delete-btn {
             margin-left: 8px; color: #999; font-size: 12px; border: 1px solid #eee; 
@@ -129,9 +143,12 @@
         .bg-kmb { background: var(--kmb-red); }
         .bg-ctb { background: var(--ctb-yellow); color: black; }
         .bg-joint { background: var(--joint-grad); }
-        .route-info { flex-grow: 1; }
-        .route-number { font-size: 20px; font-weight: 700; color: #191c1a; }
-        .route-dest { font-size: 14px; color: #444746; margin-top: 2px; }
+        .bg-lwb { background: var(--lwb-orange); }
+        .bg-joint-lwb { background: var(--joint-lwb-grad); }
+          /* Route list: make route number a fixed-width column (96px) and place destination on the same line */
+          .route-info { flex-grow: 1; display: flex; align-items: center; gap: 12px; }
+          .route-number { font-size: 20px; font-weight: 700; color: #191c1a; flex: 0 0 96px; text-align: left; }
+          .route-dest { font-size: 14px; color: #444746; margin-top: 0; flex: 1; }
 
         /* Modal */
         .modal-overlay {
@@ -172,9 +189,15 @@
 
         .eta-container { margin-top: 8px; padding-left: 40px; display: none; }
         .eta-badge { display: flex; align-items: center; padding: 4px 0; font-family: 'Roboto', monospace; }
+        .eta-badge { display: flex; align-items: center; padding: 4px 0; font-family: 'Roboto', monospace; justify-content: space-between; touch-action: manipulation; }
+        .eta-left { display:flex; align-items:center; gap:8px; }
+        .eta-dest { font-size:13px; color:#444; margin-left:12px; white-space:nowrap; }
+        .eta-add-btn { background:#006c4c; color:white; border:none; border-radius:8px; padding:6px 8px; font-weight:700; cursor:pointer; margin-left:8px; }
+        .add-stop-btn { background:#006c4c; color:white; border:none; border-radius:8px; padding:6px 8px; font-weight:700; cursor:pointer; margin-left:12px; }
         .co-pill { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-right: 8px; width: 30px; text-align: center; }
         .pill-kmb { background: #ffe0e0; color: #b30000; }
         .pill-ctb { background: #fff5cc; color: #806000; }
+        .pill-lwb { background: #ffebd6; color: #cc5200; }
         .eta-main { font-size: 16px; font-weight: 700; color: #191c1a; }
         .eta-abs { font-size: 14px; color: #747775; font-weight: 400; margin-left: 6px; }
         
@@ -190,6 +213,18 @@
         #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
         @keyframes fadein { from {bottom: 50px; opacity: 0;} to {bottom: 80px; opacity: 1;} }
         @keyframes fadeout { from {bottom: 80px; opacity: 1;} to {bottom: 50px; opacity: 0;} }
+
+        .group-select-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1100; }
+        .group-select-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border-radius: 16px; max-width: 90%; width: 320px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .group-select-header { padding: 20px; border-bottom: 1px solid #e0e0e0; font-size: 18px; font-weight: 500; }
+        .group-select-body { flex-grow: 1; overflow-y: auto; padding: 0; }
+        .group-option { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .group-option:last-child { border-bottom: none; }
+        .group-option:active { background: #f5f5f5; }
+        .group-select-footer { padding: 12px 20px; border-top: 1px solid #e0e0e0; display: flex; gap: 8px; }
+        .group-select-footer button { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 14px; }
+        .group-btn-cancel { background: #f0f0f0; color: #333; }
+        .group-btn-add { background: #006c4c; color: white; }
     </style>
 </head>
 <body>
@@ -240,6 +275,16 @@
     </div>
 </div>
 
+<div id="group-select-modal" class="group-select-modal" onclick="if(event.target.id==='group-select-modal')this.style.display='none'">
+    <div class="group-select-content">
+        <div class="group-select-header">選擇要加入的群組</div>
+        <div class="group-select-body"></div>
+        <div class="group-select-footer">
+            <button class="group-btn-cancel" onclick="document.getElementById('group-select-modal').style.display='none'">取消</button>
+        </div>
+    </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -277,13 +322,29 @@
 
     // --- Module B: Dashboard & Storage Logic ---
     let userGroups = JSON.parse(localStorage.getItem('hkTransitGroups')) || [
-        { id: 'g1', name: '💼 上班 (Morning)', stops: [] },
-        { id: 'g2', name: '🏠 回家 (Evening)', stops: [] }
+        { id: 'g1', name: '💼 上班 (Morning)', stops: [], sortAsc: true },
+        { id: 'g2', name: '🏠 回家 (Evening)', stops: [], sortAsc: true }
     ];
+    // Ensure older saved groups have sortAsc flag
+    userGroups.forEach(g => { if (typeof g.sortAsc === 'undefined') g.sortAsc = true; });
 
     function saveGroups() {
         localStorage.setItem('hkTransitGroups', JSON.stringify(userGroups));
         renderDashboard();
+    }
+
+    // Toggle sort order for a specific group and re-render
+    function toggleGroupSort(groupId) {
+        const g = userGroups.find(x => x.id === groupId);
+        if (!g) return;
+        g.sortAsc = !g.sortAsc;
+        saveGroups();
+        // Ensure data refresh immediately after switching mode:
+        // - If switched to normal mode (sortAsc === false), refresh ETA blocks for this group
+        // - If switched to ascending mode, renderDashboard() was already called in saveGroups()
+        if (!g.sortAsc) {
+            refreshGroup(groupId);
+        }
     }
 
     function showToast(msg) {
@@ -331,13 +392,13 @@
         });
         // CTB & Merge
         ctbData.data.forEach(r => {
-            const isXHT = /^(1|3|6|9)\d{2}/.test(r.route) && r.route !== 'R8' && r.route !== 'S1';
+            const isJointCandidate = /^N?(1|3|6|9)\d{2}/.test(r.route) || ['R8', 'S1'].includes(r.route);
             const outKey = `${r.route}_out`;
-            if (isXHT && routeMap.has(outKey)) { routeMap.get(outKey).co = 'JOINT'; routeMap.get(outKey).isJoint = true; }
+            if (isJointCandidate && routeMap.has(outKey)) { routeMap.get(outKey).co = 'JOINT'; routeMap.get(outKey).isJoint = true; }
             else if (!routeMap.has(outKey)) { routeMap.set(outKey, { type: 'bus', route: r.route, co: 'CTB', dest: r.dest_tc, orig: r.orig_tc, boundKey: 'outbound', id: outKey, isJoint: false }); }
 
             const inKey = `${r.route}_in`;
-            if (isXHT && routeMap.has(inKey)) { routeMap.get(inKey).co = 'JOINT'; routeMap.get(inKey).isJoint = true; }
+            if (isJointCandidate && routeMap.has(inKey)) { routeMap.get(inKey).co = 'JOINT'; routeMap.get(inKey).isJoint = true; }
             else if (!routeMap.has(inKey)) { routeMap.set(inKey, { type: 'bus', route: r.route, co: 'CTB', dest: r.orig_tc, orig: r.dest_tc, boundKey: 'inbound', id: inKey, isJoint: false }); }
         });
 
@@ -355,7 +416,116 @@
             if(btn.dataset.co === co) btn.classList.add('active');
             else btn.classList.remove('active');
         });
+        // Disable search input when MTR is selected
+        searchInput.disabled = (co === 'MTR');
+        // Clear search input when switching filters
+        searchInput.value = '';
         handleSearch();
+    }
+
+    // Helper: resolve bus destination from stored stop data or the allRoutes cache
+    function resolveBusDestination(stopOrRoute) {
+        if (!stopOrRoute) return null;
+        // If passed a stop object with dest, use it
+        if (stopOrRoute.dest) return stopOrRoute.dest;
+        // If passed a route-like object {route, co}
+        const routeNo = stopOrRoute.route || stopOrRoute.routeNo || null;
+        const co = stopOrRoute.co || null;
+        if (!routeNo || !allRoutes) return null;
+        const match = allRoutes.find(r => r.type === 'bus' && r.route === routeNo && (!co || r.co === co || r.co === 'JOINT'));
+        return match ? match.dest : null;
+    }
+
+    // Helper: check if an ETA entry matches a given route number
+    function routeMatches(entry, routeNo) {
+        if (!routeNo) return true;
+        const er = (entry.route || entry.routeno || entry.Route || entry.RouteNo || entry.route_no || '').toString().trim();
+        return er === routeNo.toString().trim();
+    }
+
+    function getStopFromElem(elem) {
+        try {
+            if (!elem || !elem.dataset || !elem.dataset.stop) return null;
+            return JSON.parse(decodeURIComponent(elem.dataset.stop));
+        } catch (e) { return null; }
+    }
+
+    // ETA long-press handlers (separate from stop-item press)
+    function etaPressStart(elem) {
+        if (!elem) return;
+        elem._etaLongPress = false;
+        elem.classList.add('holding');
+        elem._etaPressTimer = setTimeout(() => {
+            elem._etaLongPress = true;
+            elem.classList.remove('holding');
+            try { const stop = JSON.parse(decodeURIComponent(elem.dataset.stop)); promptAddToGroup(stop); } catch (e) {}
+        }, 600);
+    }
+    function etaPressEnd(elem) {
+        if (!elem) return;
+        clearTimeout(elem._etaPressTimer);
+        elem._etaPressTimer = null;
+        elem.classList.remove('holding');
+    }
+    function etaCancel(elem) { if (!elem) return; clearTimeout(elem._etaPressTimer); elem._etaPressTimer = null; elem.classList.remove('holding'); }
+
+    // Mouse/Touch wrappers to prevent duplicate triggers
+    function handleTouchPressStart(elem, dataStr, ev) {
+        window.__lastTouchTime = Date.now();
+        return handlePressStart(elem, dataStr);
+    }
+    function handleTouchPressEnd(elem, dataStr, ev) {
+        return handlePressEnd(elem, dataStr);
+    }
+    function handleMousePressStart(elem, dataStr) {
+        if (window.__lastTouchTime && Date.now() - window.__lastTouchTime < 700) return; 
+        return handlePressStart(elem, dataStr);
+    }
+    function handleMousePressEnd(elem, dataStr) {
+        if (window.__lastTouchTime && Date.now() - window.__lastTouchTime < 700) return; 
+        return handlePressEnd(elem, dataStr);
+    }
+
+    function etaTouchStart(elem, ev) {
+        window.__lastTouchTime = Date.now();
+        return etaPressStart(elem);
+    }
+    function etaTouchEnd(elem, ev) {
+        return etaPressEnd(elem);
+    }
+    function etaMouseStart(elem) {
+        if (window.__lastTouchTime && Date.now() - window.__lastTouchTime < 700) return;
+        return etaPressStart(elem);
+    }
+    function etaMouseEnd(elem) {
+        if (window.__lastTouchTime && Date.now() - window.__lastTouchTime < 700) return;
+        return etaPressEnd(elem);
+    }
+
+    // Touch double-tap helper: call promptAddToGroup on double-tap
+    function etaTouchTap(elem, ev) {
+        try {
+            const now = Date.now();
+            const last = elem._lastEtaTap || 0;
+            elem._lastEtaTap = now;
+            if (now - last < 350) {
+                const stop = JSON.parse(decodeURIComponent(elem.dataset.stop));
+                promptAddToGroup(stop);
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    // Stop double-tap helper for stop-item
+    function stopTouchTap(elem, ev) {
+        try {
+            const now = Date.now();
+            const last = elem._lastStopTap || 0;
+            elem._lastStopTap = now;
+            if (now - last < 350) {
+                const stop = JSON.parse(decodeURIComponent(elem.dataset.stop));
+                promptAddToGroup(stop);
+            }
+        } catch (e) { /* ignore */ }
     }
 
     const searchInput = document.getElementById('search-input');
@@ -366,17 +536,30 @@
         filterAndRender(val);
     }
 
+    function isLWB(route) {
+        if (['N30', 'N31', 'N42', 'N42A', 'N64'].includes(route)) return true;
+        if (/^(A|NA|E|S|R)/.test(route)) return true;
+        return false;
+    }
+    function isLwbCtbJoint(route) {
+        return ['R8', 'S1'].includes(route);
+    }
+
     function filterAndRender(searchTerm) {
         const list = document.getElementById('route-list');
-        
-        if (searchTerm === '') {
-            list.innerHTML = '<div class="loading">請輸入路線號碼或 MTR 代號</div>';
-            return;
-        }
-        
         list.innerHTML = '';
         
         const filtered = allRoutes.filter(r => {
+            // If search term is empty, show all that match current filter (top 10)
+            if (searchTerm === '') {
+                if (currentFilter === 'MTR') return r.type === 'mtr';
+                if (r.type !== 'bus') return false;
+                if (currentFilter === 'KMB') return r.co === 'KMB' || r.co === 'JOINT';
+                if (currentFilter === 'CTB') return r.co === 'CTB' || r.co === 'JOINT';
+                return false;
+            }
+            
+            // If search term exists, filter by search
             const matchesSearch = r.route.includes(searchTerm);
             if (!matchesSearch) return false;
             if (currentFilter === 'MTR') return r.type === 'mtr';
@@ -388,63 +571,245 @@
 
         if(filtered.length === 0) { list.innerHTML = '<div class="loading">找不到路線</div>'; return; }
         
-        filtered.slice(0, 50).forEach(r => {
+        filtered.forEach(r => {
             const d = document.createElement('div');
             d.className = 'route-card';
             d.onclick = () => r.type === 'mtr' ? openMtrModal(r) : openBusModal(r);
             
-            let avatarHtml = r.type === 'mtr' 
-                ? `<div class="op-avatar" style="background:${r.color}">MTR</div>`
-                : `<div class="op-avatar ${r.co==='CTB'?'bg-ctb':r.co==='JOINT'?'bg-joint':'bg-kmb'}">${r.co==='JOINT'?'JNT':r.co}</div>`;
+            let avatarHtml, routeNumHtml;
+            if (r.type === 'mtr') {
+                avatarHtml = `<div class="op-avatar" style="background:${r.color}; width:auto; border-radius:10px; padding:0 12px; font-size:14px; font-weight:500;">${r.route}</div>`;
+                routeNumHtml = '';
+            } else {
+                let coClass = 'bg-kmb', coText = r.co;
+                if (r.co === 'CTB') { coClass = 'bg-ctb'; }
+                else if (r.co === 'JOINT') {
+                    coClass = isLwbCtbJoint(r.route) ? 'bg-joint-lwb' : 'bg-joint';
+                    coText = 'JNT';
+                } else {
+                    if (isLWB(r.route)) { coClass = 'bg-lwb'; coText = 'LWB'; }
+                }
+                avatarHtml = `<div class="op-avatar ${coClass}">${coText}</div>`;
+                routeNumHtml = `<div class="route-number">${r.route}</div>`;
+            }
 
+            const routeDest = r.type === 'bus' ? (r.dest || resolveBusDestination(r) || '') : r.dest;
             d.innerHTML = `
                 ${avatarHtml}
                 <div class="route-info">
-                    <div class="route-number">${r.route}</div>
-                    <div class="route-dest">${r.type === 'bus' ? '<span style="font-size:12px;color:#888">往</span> ' : ''}${r.dest}</div>
+                    ${routeNumHtml}
+                    <div class="route-dest">${r.type === 'bus' ? '<span style="font-size:12px;color:#888">往</span> ' : ''}${routeDest}</div>
                 </div>`;
             list.appendChild(d);
         });
     }
 
     // --- Module B: Dashboard Render & Logic ---
-    function renderDashboard() {
+    async function renderDashboard() {
         const container = document.getElementById('dashboard-container');
         container.innerHTML = '';
-        
-        userGroups.forEach(group => {
+
+        for (const group of userGroups) {
             const groupDiv = document.createElement('div');
             groupDiv.className = 'group-card';
+            const sortIcon = group.sortAsc ? '↑' : '↓';
             groupDiv.innerHTML = `
                 <div class="group-header">
-                    ${group.name} 
-                    <button class="refresh-btn" onclick="refreshGroup('${group.id}')">↻</button>
+                    <span style="cursor:pointer;" onclick="editGroupName('${group.id}')">${group.name}</span>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <button class="refresh-btn" onclick="refreshGroup('${group.id}')">↻</button>
+                        <button class="refresh-btn" onclick="toggleGroupSort('${group.id}')">${sortIcon}</button>
+                        <button class="refresh-btn" onclick="deleteGroup('${group.id}')" style="font-size:16px;">🗑</button>
+                    </div>
                 </div>
+                <div class="group-selected-summary" id="group-summary-${group.id}"></div>
                 <div class="group-stops" id="group-stops-${group.id}"></div>
             `;
-            
+
             const stopsDiv = groupDiv.querySelector('.group-stops');
-            if(group.stops.length === 0) {
+            if (group.stops.length === 0) {
                 stopsDiv.innerHTML = '<div style="color:#999;font-size:13px;padding:8px;">在「搜尋」頁面長按站點即可加入</div>';
             } else {
-                group.stops.forEach((stop, idx) => {
-                    const stopRow = document.createElement('div');
-                    stopRow.className = 'saved-stop-item';
-                    stopRow.innerHTML = `
-                        <div class="saved-route-no">${stop.route}</div>
-                        <div class="saved-info">
-                            <div class="saved-dest">往 ${stop.dest}</div>
-                            <div class="saved-stop-name">${stop.stopName}</div>
-                        </div>
-                        <div class="saved-eta" id="dash-eta-${group.id}-${idx}">...</div>
-                        <button class="delete-btn" onclick="removeStop('${group.id}', ${idx})">✕</button>
-                    `;
-                    stopsDiv.appendChild(stopRow);
-                    fetchDashboardEta(stop, `dash-eta-${group.id}-${idx}`);
-                });
+                if (group.sortAsc) {
+                    // Ascending mode: flatten all departures from all stops, each departure is one row
+                    const perStopDeps = await Promise.all(group.stops.map((stop, origIdx) => fetchDeparturesForStop(stop).then(list => ({ stop, origIdx, list }))));
+                    let depResults = [];
+                    perStopDeps.forEach(p => {
+                        const { stop, origIdx, list } = p;
+                        if (!list || list.length === 0) return;
+                        // If joint route (both operators), take up to 3 per operator
+                        const isJoint = stop.co === 'JOINT' || (stop.kmbId && stop.ctbId);
+                        if (isJoint) {
+                            const byKMB = list.filter(x => x.co === 'KMB').slice(0,3).map(x => ({...x, stop, origIdx}));
+                            const byCTB = list.filter(x => x.co === 'CTB').slice(0,3).map(x => ({...x, stop, origIdx}));
+                            depResults = depResults.concat(byKMB, byCTB);
+                        } else {
+                            // non-joint: include up to 3 upcoming
+                            depResults = depResults.concat(list.slice(0,3).map(x => ({...x, stop, origIdx})));
+                        }
+                    });
+                    // sort combined results by time and limit to 30 rows
+                    depResults.sort((a,b) => a.time.getTime() - b.time.getTime());
+                    depResults.slice(0, 30).forEach((d, i) => {
+                        const row = document.createElement('div');
+                        row.className = 'saved-stop-item';
+                        if (i === 0) row.style.backgroundColor = '#e8f5e9';
+                        const destLabel = d.dest || d.bound || resolveBusDestination(d.stop) || '';
+                        const destHtml = destLabel ? `<div class="saved-dest">${destLabel}</div>` : '';
+                        const etaHtml = `<div class="saved-eta-item">${d.co && (d.stop.co==='JOINT' || (d.stop.kmbId && d.stop.ctbId)) ? `<span class="saved-eta-co ${d.co==='KMB'?'kmb':'ctb'}">${d.co}</span>` : ''}<span class="saved-eta-time">${d.min}min</span><span class="saved-eta-abs">(${d.timeStr})</span></div>`;
+                        
+                        let routeStyle = '';
+                        if (d.stop.type === 'mtr' && d.stop.line && MTR_LINES[d.stop.line]) {
+                            routeStyle = `style="background:${MTR_LINES[d.stop.line].color};color:white;border-radius:10px;font-size:14px;padding:4px 8px;width:auto;min-width:60px;margin-right:8px;display:flex;justify-content:center;align-items:center;"`;
+                        } else if (d.stop.type === 'bus') {
+                            let bg = '#747775', txt = 'white';
+                            if (d.stop.co === 'KMB') bg = isLWB(d.route) ? '#ff6600' : '#e60012';
+                            else if (d.stop.co === 'CTB') { bg = '#f8c300'; txt = 'black'; }
+                            else if (d.stop.co === 'JOINT') bg = isLwbCtbJoint(d.route) ? 'linear-gradient(135deg, #ff6600 45%, #f8c300 55%)' : 'linear-gradient(135deg, #e60012 45%, #f8c300 55%)';
+                            routeStyle = `style="background:${bg};color:${txt};border-radius:10px;font-size:14px;padding:4px 8px;width:auto;min-width:60px;margin-right:8px;display:flex;justify-content:center;align-items:center;"`;
+                        }
+                        row.innerHTML = `
+                            <div class="saved-route-no" ${routeStyle}>${d.route}</div>
+                            <div class="saved-info">
+                                ${destHtml}
+                                <div class="saved-stop-selected">${d.stop.stopName || d.stop.name || d.stop.stopId || ''}</div>
+                            </div>
+                            <div class="saved-eta">${etaHtml}</div>
+                            <button class="delete-btn" onclick="removeStop('${group.id}', ${d.origIdx})">✕</button>
+                        `;
+                        stopsDiv.appendChild(row);
+                    });
+                } else {
+                    // Normal mode: list stops with their ETA block; include selected station line
+                    const etaPromises = group.stops.map((stop, origIdx) => fetchNextEtaForStop(stop).then(t => ({ stop, origIdx, nextEta: t })));
+                    const etaResults = await Promise.all(etaPromises);
+                    etaResults.sort((a, b) => {
+                        const ta = a.nextEta ? a.nextEta.getTime() : Infinity;
+                        const tb = b.nextEta ? b.nextEta.getTime() : Infinity;
+                        return group.sortAsc ? ta - tb : tb - ta;
+                    });
+
+                    etaResults.forEach(entry => {
+                        const stop = entry.stop;
+                        const idx = entry.origIdx;
+                        const stopRow = document.createElement('div');
+                        stopRow.className = 'saved-stop-item';
+                        const resolvedDest = resolveBusDestination(stop) || '';
+                        const destDisplay = stop.type === 'mtr' ? (stop.dest || '') : (resolvedDest ? ('往 ' + resolvedDest) : '');
+                        const destHtml = destDisplay ? `<div class="saved-dest">${destDisplay}</div>` : '';
+                        
+                        let routeStyle = '';
+                        if (stop.type === 'mtr' && stop.line && MTR_LINES[stop.line]) {
+                            routeStyle = `style="background:${MTR_LINES[stop.line].color};color:white;border-radius:10px;font-size:14px;padding:4px 8px;width:auto;min-width:60px;margin-right:8px;display:flex;justify-content:center;align-items:center;"`;
+                        } else if (stop.type === 'bus') {
+                            let bg = '#747775', txt = 'white';
+                            if (stop.co === 'KMB') bg = isLWB(stop.route) ? '#ff6600' : '#e60012';
+                            else if (stop.co === 'CTB') { bg = '#f8c300'; txt = 'black'; }
+                            else if (stop.co === 'JOINT') bg = isLwbCtbJoint(stop.route) ? 'linear-gradient(135deg, #ff6600 45%, #f8c300 55%)' : 'linear-gradient(135deg, #e60012 45%, #f8c300 55%)';
+                            routeStyle = `style="background:${bg};color:${txt};border-radius:10px;font-size:14px;padding:4px 8px;width:auto;min-width:60px;margin-right:8px;display:flex;justify-content:center;align-items:center;"`;
+                        }
+                        stopRow.innerHTML = `
+                            <div class="saved-route-no" ${routeStyle}>${stop.route}</div>
+                            <div class="saved-info">
+                                ${destHtml}
+                                <div class="saved-stop-selected">${stop.stopName || stop.name || stop.stopId || ''}</div>
+                            </div>
+                            <div class="saved-eta" id="dash-eta-${group.id}-${idx}"></div>
+                            <button class="delete-btn" onclick="removeStop('${group.id}', ${idx})">✕</button>
+                        `;
+                        stopsDiv.appendChild(stopRow);
+                        fetchDashboardEta(stop, `dash-eta-${group.id}-${idx}`);
+                    });
+                }
             }
+            // populate selected stops summary
+            const summaryEl = groupDiv.querySelector(`#group-summary-${group.id}`) || groupDiv.querySelector('.group-selected-summary');
+            if (summaryEl) {
+                summaryEl.innerText = group.stops && group.stops.length ? group.stops.map(s => s.stopName || s.name || s.dest || s.stopId || '').filter(Boolean).join(' · ') : '未選取站點';
+            }
+
             container.appendChild(groupDiv);
-        });
+        }
+
+        // Add new group button
+        const addGroupBtn = document.createElement('div');
+        addGroupBtn.style.cssText = 'background:#006c4c;border-radius:12px;padding:16px;margin-bottom:16px;text-align:center;cursor:pointer;color:white;font-weight:500;';
+        addGroupBtn.textContent = '+ 新增群組';
+        addGroupBtn.onclick = () => {
+            const groupName = prompt('輸入群組名稱:', '');
+            if(groupName && groupName.trim()) {
+                const newId = 'g' + Date.now();
+                userGroups.push({ id: newId, name: groupName, stops: [], sortAsc: true });
+                saveGroups();
+            }
+        };
+        container.appendChild(addGroupBtn);
+    }
+
+    // Helper: return earliest ETA Date object for a stop or null
+    async function fetchNextEtaForStop(stop) {
+        try {
+            if (stop.type === 'mtr') {
+                const res = await fetch(`${API_MTR}?line=${stop.line}&sta=${stop.stopId}`);
+                const json = await res.json();
+                const key = `${stop.line}-${stop.stopId}`;
+                if (!json.data || !json.data[key]) return null;
+                const trains = [...(json.data[key].UP||[]), ...(json.data[key].DOWN||[])];
+                if (trains.length === 0) return null;
+                const times = trains.map(t => new Date(t.time.replace(/-/g, '/')));
+                return new Date(Math.min(...times.map(d=>d.getTime())));
+            } else {
+                const targetDir = stop.dir === 'outbound' ? 'O' : 'I';
+                let promises = [];
+                if (stop.kmbId && stop.kmbId !== 'null') promises.push(fetch(`${API_KMB}/eta/${stop.kmbId}/${stop.route}/1`).then(r=>r.json()).then(d=>d.data.map(e=>({...e, co:'KMB'}))));
+                if (stop.ctbId && stop.ctbId !== 'null') promises.push(fetch(`${API_CTB}/eta/CTB/${stop.ctbId}/${stop.route}`).then(r=>r.json()).then(d=>d.data.map(e=>({...e, co:'CTB'}))));
+                const results = await Promise.all(promises);
+                const allEtas = results.flat().filter(e => e.dir === targetDir && e.eta && routeMatches(e, stop.route)).map(e => new Date(e.eta));
+                if (allEtas.length === 0) return null;
+                return new Date(Math.min(...allEtas.map(d=>d.getTime())));
+            }
+        } catch (e) { return null; }
+    }
+
+    // Fetch all upcoming departures for a specific stop (returns array of {time, timeStr, min, route, bound, co})
+    async function fetchDeparturesForStop(stop) {
+        try {
+            if (stop.type === 'mtr') {
+                const res = await fetch(`${API_MTR}?line=${stop.line}&sta=${stop.stopId}`);
+                const json = await res.json();
+                const key = `${stop.line}-${stop.stopId}`;
+                if (!json.data || !json.data[key]) return [];
+                const trains = [...(json.data[key].UP||[]), ...(json.data[key].DOWN||[])];
+                return trains.map(t => {
+                    const dt = new Date(t.time.replace(/-/g, '/'));
+                    const min = Math.max(0, Math.floor((dt - new Date())/60000));
+                    const timeStr = dt.toLocaleTimeString('en-GB',{hour12:false});
+                    const destName = MTR_STATION_NAMES[t.dest] || t.dest;
+                    const bound = `往 ${destName}`;
+                    return { time: dt, timeStr, min, route: stop.route, bound, dest: destName, co: 'MTR' };
+                }).filter(x => x.time);
+            } else {
+                const targetDir = stop.dir === 'outbound' ? 'O' : 'I';
+                let promises = [];
+                if (stop.kmbId && stop.kmbId !== 'null') promises.push(fetch(`${API_KMB}/eta/${stop.kmbId}/${stop.route}/1`).then(r=>r.json()).then(d=>d.data.map(e=>({...e, co:'KMB'}))));
+                if (stop.ctbId && stop.ctbId !== 'null') promises.push(fetch(`${API_CTB}/eta/CTB/${stop.ctbId}/${stop.route}`).then(r=>r.json()).then(d=>d.data.map(e=>({...e, co:'CTB'}))));
+                const results = await Promise.all(promises);
+                const allEtas = results.flat().filter(e => e.dir === targetDir && e.eta && routeMatches(e, stop.route)).map(e => {
+                    const dt = new Date(e.eta);
+                    const min = Math.max(0, Math.floor((dt - new Date())/60000));
+                    const destName = e.dest_tc || e.destination_tc || e.dest || stop.dest || '';
+                    return { time: dt, timeStr: dt.toLocaleTimeString('en-GB',{hour12:false}), min, route: stop.route, bound: destName || (stop.dir || (e.dir === 'O' ? 'Out' : 'In')), dest: destName, co: e.co };
+                });
+                return allEtas;
+            }
+        } catch (e) { return []; }
+    }
+
+    // Refresh logic across all groups: re-render ascending groups, update ETA blocks for normal groups
+    async function refreshAllGroups() {
+        const anyAsc = userGroups.some(g => g.sortAsc && g.stops.length>0);
+        if (anyAsc) await renderDashboard();
+        userGroups.forEach(g => { if (!g.sortAsc) refreshGroup(g.id); });
     }
 
     function removeStop(groupId, idx) {
@@ -455,12 +820,34 @@
         }
     }
 
+    function deleteGroup(groupId) {
+        if(userGroups.length <= 1) { showToast('至少要保留一個群組'); return; }
+        if(confirm('確定刪除此群組？')) {
+            userGroups = userGroups.filter(g => g.id !== groupId);
+            saveGroups();
+        }
+    }
+
+    function editGroupName(groupId) {
+        const group = userGroups.find(g => g.id === groupId);
+        if(!group) return;
+        const newName = prompt('編輯群組名稱:', group.name);
+        if(newName && newName.trim()) {
+            group.name = newName;
+            saveGroups();
+        }
+    }
+
     function refreshGroup(groupId) {
         const group = userGroups.find(g => g.id === groupId);
         if(!group) return;
+        if (group.sortAsc) { renderDashboard(); return; }
         group.stops.forEach((stop, idx) => {
-            document.getElementById(`dash-eta-${group.id}-${idx}`).innerText = '...';
-            fetchDashboardEta(stop, `dash-eta-${group.id}-${idx}`);
+            const el = document.getElementById(`dash-eta-${group.id}-${idx}`);
+            if (el) {
+                el.innerText = '...';
+                fetchDashboardEta(stop, `dash-eta-${group.id}-${idx}`);
+            }
         });
     }
 
@@ -473,14 +860,20 @@
                 const res = await fetch(`${API_MTR}?line=${stop.line}&sta=${stop.stopId}`);
                 const json = await res.json();
                 const key = `${stop.line}-${stop.stopId}`;
-                if(json.status === 0 || !json.data[key]) { el.innerText = '-'; return; }
+                if(json.status === 0 || !json.data[key]) { el.innerHTML = '<div style="color:#999;font-size:12px;">-</div>'; return; }
                 
                 const trains = [...(json.data[key].UP || []), ...(json.data[key].DOWN || [])];
-                const relevant = trains.filter(t => t.dest === stop.destCode); 
-                if(relevant.length > 0) {
-                     const min = Math.max(0, Math.floor((new Date(relevant[0].time.replace(/-/g, "/")) - new Date())/60000));
-                     el.innerText = min + 'min';
-                } else { el.innerText = '-'; }
+                if(trains.length > 0) {
+                     let html = '';
+                     trains.slice(0, 4).forEach((t, i) => {
+                         const min = Math.max(0, Math.floor((new Date(t.time.replace(/-/g, "/")) - new Date())/60000));
+                         const timeStr = new Date(t.time.replace(/-/g, "/")).toLocaleTimeString('en-GB',{hour12:false});
+                         const destName = MTR_STATION_NAMES[t.dest] || t.dest;
+                         const hl = i === 0 ? 'background-color:#e8f5e9;padding:2px 4px;border-radius:4px;' : '';
+                         html += `<div class="saved-eta-item" style="${hl}"><span class="saved-eta-time">${destName} ${min}min</span><span class="saved-eta-abs">(${timeStr})</span></div>`;
+                     });
+                     el.innerHTML = html;
+                } else { el.innerHTML = '<div style="color:#999;font-size:12px;">-</div>'; }
 
             } else {
                 const targetDir = stop.dir === 'outbound' ? 'O' : 'I';
@@ -489,15 +882,26 @@
                 if(stop.ctbId && stop.ctbId !== 'null') promises.push(fetch(`${API_CTB}/eta/CTB/${stop.ctbId}/${stop.route}`).then(r=>r.json()).then(d=>d.data.map(e=>({...e, co:'CTB'}))));
                 
                 const results = await Promise.all(promises);
-                const allEtas = results.flat().filter(e => e.dir === targetDir && e.eta).sort((a,b)=>new Date(a.eta)-new Date(b.eta));
-                
-                if(allEtas.length > 0) {
-                    const min = Math.max(0, Math.floor((new Date(allEtas[0].eta) - new Date())/60000));
-                    el.innerText = min === 0 ? '即達' : min + 'min';
-                    el.style.color = allEtas[0].co === 'KMB' ? 'var(--kmb-red)' : '#d6a600';
-                } else { el.innerText = '-'; }
+                    const allEtas = results.flat().filter(e => e.dir === targetDir && e.eta && routeMatches(e, stop.route));
+
+                    if(allEtas.length > 0) {
+                        // merge and sort across operators, then take up to 6 departures
+                        allEtas.sort((a,b) => new Date(a.eta) - new Date(b.eta));
+                        const merged = allEtas.slice(0, 6);
+                        const isJoint = stop.co === 'JOINT' || (stop.kmbId && stop.ctbId && stop.kmbId !== 'null' && stop.ctbId !== 'null');
+                        let html = '';
+                        merged.forEach((e, i) => {
+                            const min = Math.max(0, Math.floor((new Date(e.eta) - new Date())/60000));
+                            const timeStr = new Date(e.eta).toLocaleTimeString('en-GB',{hour12:false});
+                            const coClass = e.co === 'KMB' ? (isLWB(stop.route) ? 'lwb' : 'kmb') : 'ctb';
+                            const hl = i === 0 ? 'background-color:#e8f5e9;padding:2px 4px;border-radius:4px;' : '';
+                            const coHtml = isJoint ? `<span class="saved-eta-co ${coClass}">${e.co}</span>` : '';
+                            html += `<div class="saved-eta-item" style="${hl}">${coHtml}<span class="saved-eta-time">${min}min</span><span class="saved-eta-abs">(${timeStr})</span></div>`;
+                        });
+                        el.innerHTML = html;
+                    } else { el.innerHTML = '<div style="color:#999;font-size:12px;">-</div>'; }
             }
-        } catch(e) { el.innerText = 'Err'; }
+        } catch(e) { el.innerHTML = '<div style="color:#999;font-size:12px;">Err</div>'; }
     }
 
     // --- Modal & Stop Logic (with Long Press) ---
@@ -549,14 +953,15 @@
         const listDiv = document.getElementById('modal-body');
         let html = '';
         stops.forEach((s, i) => {
-            const dataStr = encodeURIComponent(JSON.stringify(s));
+            const dataStr = encodeURIComponent(JSON.stringify(s)).replace(/'/g, "%27");
             const dotStyle = type==='mtr' ? `style="border-color:${s.color}"` : '';
             html += `
-                <div class="stop-item" 
-                    onmousedown="handlePressStart(this, '${dataStr}')" 
-                    ontouchstart="handlePressStart(this, '${dataStr}')" 
-                    onmouseup="handlePressEnd(this, '${dataStr}')" 
-                    ontouchend="handlePressEnd(this, '${dataStr}')"
+                <div class="stop-item" data-stop='${dataStr}'
+                    ontouchstart="handleTouchPressStart(this, '${dataStr}', event)"
+                    ontouchend="handleTouchPressEnd(this, '${dataStr}', event)"
+                    ontouchcancel="cancelPress(this)"
+                    onmousedown="handleMousePressStart(this, '${dataStr}')"
+                    onmouseup="handleMousePressEnd(this, '${dataStr}')"
                     onmouseleave="cancelPress(this)"
                 >
                     <div class="stop-row">
@@ -598,32 +1003,52 @@
         elem.classList.remove('holding');
     }
 
+    let pendingStopData = null;
+
     function promptAddToGroup(stopData) {
-        const choice = confirm(`將「${stopData.name}」加入「上班」群組嗎？\n(按取消則加入「回家」)`);
-        const targetGroupId = choice ? 'g1' : 'g2';
-        const targetGroup = userGroups.find(g => g.id === targetGroupId);
+        pendingStopData = stopData;
+        const modal = document.getElementById('group-select-modal');
+        const body = modal.querySelector('.group-select-body');
+        body.innerHTML = '';
         
-        const exists = targetGroup.stops.some(s => s.route === stopData.route && s.stopName === stopData.name);
+        userGroups.forEach(group => {
+            const option = document.createElement('div');
+            option.className = 'group-option';
+            option.innerHTML = `<span>${group.name}</span><span>(${group.stops.length})</span>`;
+            option.onclick = () => {
+                addStopToGroup(stopData, group.id);
+                modal.style.display = 'none';
+            };
+            body.appendChild(option);
+        });
+        
+        modal.style.display = 'block';
+    }
+
+    function addStopToGroup(stopData, groupId) {
+        const targetGroup = userGroups.find(g => g.id === groupId);
+        if(!targetGroup) return;
+        
+        const exists = targetGroup.stops.some(s => 
+            s.route === stopData.route && 
+            (s.name === stopData.name || s.stopName === stopData.name) &&
+            s.dir === stopData.dir
+        );
         if(exists) { showToast('該站點已在群組中'); return; }
 
         if (stopData.type === 'mtr') {
-            const dest = prompt("請輸入MTR方向代號 (例如往中環輸入 CEN, 往柴灣輸入 CHW):", "CEN");
-            if(!dest) return;
-            stopData.destCode = dest.toUpperCase();
-            stopData.dest = MTR_STATION_NAMES[stopData.destCode] || stopData.destCode;
+            // 对于MTR，使用显示的方向名称而不是代码
+            stopData.dest = stopData.name;
         }
 
         targetGroup.stops.push(stopData);
         saveGroups();
         showToast(`已加入 ${targetGroup.name}`);
-        
-        // Optional: Switch to dashboard to show result
-        // switchTab('dashboard'); 
     }
 
-    async function toggleBusEta(kmbId, ctbId, routeNo, boundKey, elem) {
+    async function toggleBusEta(kmbId, ctbId, routeNo, boundKey, elem, isRefresh = false) {
         const container = elem.querySelector('.eta-container');
-        if (container.style.display === 'block') { container.style.display = 'none'; return; }
+        if (!isRefresh && container.style.display === 'block') { container.style.display = 'none'; return; }
         
         container.style.display = 'block';
         container.innerHTML = '<span style="color:#999;font-size:13px;">載入中...</span>';
@@ -635,42 +1060,109 @@
             if (ctbId && ctbId !== 'null') promises.push(fetch(`${API_CTB}/eta/CTB/${ctbId}/${routeNo}`).then(r => r.json()).then(d => d.data.map(e => ({...e, co: 'CTB'}))));
 
             const results = await Promise.all(promises);
-            let allEtas = results.flat().filter(e => e.dir === targetDir && e.eta).sort((a, b) => new Date(a.eta) - new Date(b.eta));
+            let allEtas = results.flat().filter(e => e.eta && routeMatches(e, routeNo)).sort((a, b) => new Date(a.eta) - new Date(b.eta));
 
-            if (allEtas.length === 0) { container.innerHTML = '<span style="color:#999;font-size:13px;">暫無班次</span>'; return; }
+            const refreshBtn = `<div style="text-align:right;margin-bottom:6px;"><button style="font-size:12px;padding:4px 10px;border:1px solid #ddd;background:#fff;border-radius:12px;color:#333;cursor:pointer;" onclick="event.stopPropagation(); toggleBusEta('${kmbId}', '${ctbId}', '${routeNo}', '${boundKey}', this.closest('.stop-item'), true)" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()">↻ 刷新</button></div>`;
 
-            let etaHtml = '';
-            allEtas.slice(0, 3).forEach(e => {
-                const min = Math.max(0, Math.floor((new Date(e.eta) - new Date()) / 60000));
-                etaHtml += `<div class="eta-badge"><span class="co-pill ${e.co==='KMB'?'pill-kmb':'pill-ctb'}">${e.co}</span><span class="eta-main">${min}min</span><span class="eta-abs">(${new Date(e.eta).toLocaleTimeString('en-GB',{hour12:false})})</span></div>`;
+            if (allEtas.length === 0) { container.innerHTML = refreshBtn + '<span style="color:#999;font-size:13px;">暫無班次</span>'; return; }
+
+            // Filter by target direction only
+            const validEtas = allEtas.filter(e => e.dir === targetDir);
+            if (validEtas.length === 0) { container.innerHTML = refreshBtn + '<span style="color:#999;font-size:13px;">暫無班次</span>'; return; }
+
+            const baseStop = getStopFromElem(elem) || {};
+            let html = '';
+            
+            // Group by destination
+            const groups = {};
+            const destOrder = [];
+            validEtas.forEach(e => {
+                const d = e.dest_tc || e.destination_tc || e.destination || e.dest || '';
+                if(!groups[d]) { groups[d] = []; destOrder.push(d); }
+                groups[d].push(e);
             });
-            container.innerHTML = etaHtml;
+
+            destOrder.forEach(dest => {
+                const list = groups[dest];
+                const first = list[0];
+                const stopData = { type: 'bus', name: baseStop.name || '', kmbId: baseStop.kmbId || null, ctbId: baseStop.ctbId || null, route: routeNo, dir: boundKey, dest: dest, co: first.co };
+                const ds = encodeURIComponent(JSON.stringify(stopData));
+                
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #eee;margin-top:4px;">
+                            <span style="font-size:12px;font-weight:700;color:#006c4c;">往 ${dest}</span>
+                            <button class="eta-add-btn" data-stop='${ds}' onclick="promptAddToGroup(JSON.parse(decodeURIComponent(this.dataset.stop)))">＋</button>
+                         </div>`;
+                
+                const isJoint = (kmbId && kmbId !== 'null') && (ctbId && ctbId !== 'null');
+                list.slice(0, 6).forEach((e, i) => {
+                    const min = Math.max(0, Math.floor((new Date(e.eta) - new Date()) / 60000));
+                    const timeStr = new Date(e.eta).toLocaleTimeString('en-GB',{hour12:false});
+                    const hl = i === 0 ? 'background-color:#e8f5e9;border-radius:6px;padding:0 4px;' : '';
+                    const coHtml = isJoint ? `<span class="co-pill ${e.co==='KMB'?(isLWB(routeNo)?'pill-lwb':'pill-kmb'):'pill-ctb'}">${e.co}</span>` : '';
+                    html += `<div class="eta-badge" style="${hl}"><div class="eta-left">${coHtml}<span class="eta-main">${min}min</span><span class="eta-abs">(${timeStr})</span></div></div>`;
+                });
+            });
+
+            container.innerHTML = refreshBtn + html;
         } catch (err) { container.innerHTML = '連線錯誤'; }
     }
 
-    async function toggleMtrEta(line, station, elem) {
+    async function toggleMtrEta(line, station, elem, isRefresh = false) {
         const container = elem.querySelector('.eta-container');
-        if (container.style.display === 'block') { container.style.display = 'none'; return; }
+        if (!isRefresh && container.style.display === 'block') { container.style.display = 'none'; return; }
         container.style.display = 'block'; container.innerHTML = '...';
 
         const res = await fetch(`${API_MTR}?line=${line}&sta=${station}`);
         const json = await res.json();
         const key = `${line}-${station}`;
-        if(!json.data[key]) { container.innerHTML = '暫無數據'; return; }
+        const refreshBtn = `<div style="text-align:right;margin-bottom:6px;"><button style="font-size:12px;padding:4px 10px;border:1px solid #ddd;background:#fff;border-radius:12px;color:#333;cursor:pointer;" onclick="event.stopPropagation(); toggleMtrEta('${line}', '${station}', this.closest('.stop-item'), true)" onmousedown="event.stopPropagation()" onmouseup="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()">↻ 刷新</button></div>`;
+
+        if(!json.data[key]) { container.innerHTML = refreshBtn + '暫無數據'; return; }
         
-        const trains = [...(json.data[key].UP||[]), ...(json.data[key].DOWN||[])];
-        const groups = {};
-        trains.forEach(t => { if(!groups[t.dest]) groups[t.dest]=[]; groups[t.dest].push(t); });
+        const up = json.data[key].UP || [];
+        const down = json.data[key].DOWN || [];
+        const baseStop = getStopFromElem(elem) || {};
         
-        let html = '';
-        Object.keys(groups).forEach(d => {
-            html += `<div style="margin-top:8px;font-weight:700;color:#00498C">往 ${MTR_STATION_NAMES[d]||d}</div>`;
-            groups[d].slice(0,2).forEach(t => {
-                const min = Math.max(0, Math.floor((new Date(t.time.replace(/-/g,"/")) - new Date())/60000));
-                html += `<div style="padding-left:12px">${min}min <small>(${t.time.split(' ')[1].substr(0,5)})</small></div>`;
+        const renderDir = (trains, dirStr) => {
+            if(!trains || trains.length === 0) return '';
+            
+            // Heuristic: If fewer than 4 trains are returned, the last one is likely the last train of the day.
+            const lastTrainIndex = trains.length < 4 ? trains.length - 1 : -1;
+            
+            const groups = {};
+            const destOrder = [];
+            trains.forEach((t, idx) => {
+                if(!groups[t.dest]) { groups[t.dest] = []; destOrder.push(t.dest); }
+                t.isLast = (idx === lastTrainIndex);
+                groups[t.dest].push(t);
             });
-        });
-        container.innerHTML = html || '暫無班次';
+            
+            let html = '';
+            destOrder.forEach(dest => {
+                const list = groups[dest];
+                const destName = MTR_STATION_NAMES[dest] || dest || '';
+                const stopData = { type: 'mtr', name: baseStop.name || '', line: line, stopId: station, route: baseStop.route || line, dir: dirStr };
+                const ds = encodeURIComponent(JSON.stringify(stopData));
+                
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #eee;margin-top:4px;">
+                            <span style="font-size:12px;font-weight:700;color:#006c4c;">往 ${destName}</span>
+                            <button class="eta-add-btn" data-stop='${ds}' onclick="promptAddToGroup(JSON.parse(decodeURIComponent(this.dataset.stop)))">＋</button>
+                         </div>`;
+                
+                list.slice(0, 4).forEach((t, i) => {
+                    const min = Math.max(0, Math.floor((new Date(t.time.replace(/-/g,"/")) - new Date())/60000));
+                    const timeStr = t.time.split(' ')[1].substr(0,5);
+                    const lastBadge = t.isLast ? '<span style="font-size:10px;background:#e60012;color:white;padding:1px 4px;border-radius:4px;margin-left:6px;">尾班車</span>' : '';
+                    const hl = i === 0 ? 'background-color:#e8f5e9;border-radius:6px;padding:0 4px;' : '';
+                    html += `<div class="eta-badge" style="${hl}"><div class="eta-left"><span class="eta-main">${min}min</span><span class="eta-abs">(${timeStr})</span>${lastBadge}</div></div>`;
+                });
+            });
+            return html;
+        };
+
+        const leftHtml = renderDir(up, 'UP');
+        const rightHtml = renderDir(down, 'DOWN');
+        container.innerHTML = refreshBtn + (`<div style="display:flex;gap:12px;"><div style="flex:1">${leftHtml}</div><div style="flex:1">${rightHtml}</div></div>` || '暫無班次');
     }
 
     function setupModal(title, sub) {
@@ -680,6 +1172,14 @@
         m.style.display = 'flex';
     }
     function closeModal() { document.getElementById('route-modal').style.display = 'none'; }
+
+    // Start auto-refresh every 30 seconds (ensure single interval)
+    if (!window.__hk_auto_refresh_started) {
+        window.__hk_auto_refresh_started = true;
+        // initial refresh after short delay to allow initial render
+        setTimeout(refreshAllGroups, 2000);
+        setInterval(refreshAllGroups, 30000);
+    }
 </script>
 
 </body>
