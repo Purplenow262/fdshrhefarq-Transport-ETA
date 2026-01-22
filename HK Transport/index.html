@@ -69,7 +69,7 @@
         .filter-btn.active {
             border-color: transparent; color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        .filter-btn[data-co="KMB/LWB"].active { background: var(--kmb-red); }
+        .filter-btn[data-co="KMB"].active { background: var(--kmb-red); }
         .filter-btn[data-co="CTB"].active { background: var(--ctb-yellow); color: #000; }
         .filter-btn[data-co="MTR"].active { background: #ac2e44; }
 
@@ -97,7 +97,7 @@
         .saved-dest { font-weight: 500; color: #000; }
         .saved-stop-name { font-size: 12px; color: #747775; }
         .saved-stop-selected { font-size: 12px; color: #888; margin-top:4px; }
-        .saved-eta { display: flex; flex-direction: column; gap: 6px; text-align: right; min-width: 120px; }
+        .saved-eta { display: flex; flex-direction: column; gap: 6px; text-align: right; min-width: 90px; }
         .saved-eta-item { font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
         .saved-eta-co { font-size: 10px; font-weight: 700; padding: 2px 4px; border-radius: 3px; text-transform: uppercase; }
         .saved-eta-co.kmb { background: #ffe0e0; color: #b30000; }
@@ -111,6 +111,19 @@
             border-radius: 4px; padding: 2px 6px; background: none;
         }
 
+        /* --- Pull to Refresh --- */
+        #ptr-indicator {
+            position: absolute;
+            top: -50px;
+            left: 0;
+            right: 0;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #555;
+        }
         /* --- Bottom Navigation --- */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; width: 100%; height: 64px;
@@ -248,7 +261,7 @@
         </div>
 
         <div id="route-list">
-            <div class="loading">請輸入路線號碼或 MTR 代號</div>
+            <div class="loading">請輸入路線號碼</div>
         </div>
     </div>
 </div>
@@ -281,6 +294,19 @@
         <div class="group-select-body"></div>
         <div class="group-select-footer">
             <button class="group-btn-cancel" onclick="document.getElementById('group-select-modal').style.display='none'">取消</button>
+        </div>
+    </div>
+</div>
+
+<div id="rename-group-modal" class="group-select-modal" onclick="if(event.target.id==='rename-group-modal')this.style.display='none'">
+    <div class="group-select-content">
+        <div class="group-select-header">編輯群組名稱</div>
+        <div class="group-select-body" style="padding: 20px;">
+            <input type="text" id="rename-group-input" class="search-box" style="width: 100%; margin-bottom: 0;">
+        </div>
+        <div class="group-select-footer">
+            <button class="group-btn-cancel" onclick="document.getElementById('rename-group-modal').style.display='none'">取消</button>
+            <button id="rename-group-save-btn" class="group-btn-add" onclick="saveGroupName()">儲存</button>
         </div>
     </div>
 </div>
@@ -328,23 +354,29 @@
     // Ensure older saved groups have sortAsc flag
     userGroups.forEach(g => { if (typeof g.sortAsc === 'undefined') g.sortAsc = true; });
 
-    function saveGroups() {
+    async function saveGroups() {
         localStorage.setItem('hkTransitGroups', JSON.stringify(userGroups));
-        renderDashboard();
+        await renderDashboard();
     }
 
     // Toggle sort order for a specific group and re-render
-    function toggleGroupSort(groupId) {
+    async function toggleGroupSort(groupId) {
         const g = userGroups.find(x => x.id === groupId);
         if (!g) return;
         g.sortAsc = !g.sortAsc;
-        saveGroups();
-        // Ensure data refresh immediately after switching mode:
-        // - If switched to normal mode (sortAsc === false), refresh ETA blocks for this group
-        // - If switched to ascending mode, renderDashboard() was already called in saveGroups()
-        if (!g.sortAsc) {
-            refreshGroup(groupId);
+        await saveGroups();
+    }
+
+    async function moveGroup(groupId, direction) {
+        const index = userGroups.findIndex(g => g.id === groupId);
+        if (index === -1) return;
+
+        if (direction === 'up' && index > 0) {
+            [userGroups[index - 1], userGroups[index]] = [userGroups[index], userGroups[index - 1]];
+        } else if (direction === 'down' && index < userGroups.length - 1) {
+            [userGroups[index], userGroups[index + 1]] = [userGroups[index + 1], userGroups[index]];
         }
+        await saveGroups();
     }
 
     function showToast(msg) {
@@ -598,7 +630,7 @@
                 ${avatarHtml}
                 <div class="route-info">
                     ${routeNumHtml}
-                    <div class="route-dest">${r.type === 'bus' ? '<span style="font-size:12px;color:#888">往</span> ' : ''}${routeDest}</div>
+                    <div class="route-dest">${r.type === 'bus' ? '<span style="font-size:12px;color:#888"></span> ' : ''}${routeDest}</div>
                 </div>`;
             list.appendChild(d);
         });
@@ -608,21 +640,27 @@
     async function renderDashboard() {
         const container = document.getElementById('dashboard-container');
         container.innerHTML = '';
+        const allNormalModePromises = [];
 
-        for (const group of userGroups) {
+        for (const [index, group] of userGroups.entries()) {
             const groupDiv = document.createElement('div');
             groupDiv.className = 'group-card';
             const sortIcon = group.sortAsc ? '↑' : '↓';
+            const isFirst = index === 0;
+            const isLast = index === userGroups.length - 1;
+            const upArrow = isFirst ? '' : `<button class="refresh-btn" onclick="moveGroup('${group.id}', 'up')" style="font-size:16px;">▲</button>`;
+            const downArrow = isLast ? '' : `<button class="refresh-btn" onclick="moveGroup('${group.id}', 'down')" style="font-size:16px;">▼</button>`;
+
             groupDiv.innerHTML = `
                 <div class="group-header">
                     <span style="cursor:pointer;" onclick="editGroupName('${group.id}')">${group.name}</span>
                     <div style="display:flex;gap:8px;align-items:center;">
+                        ${upArrow}${downArrow}
                         <button class="refresh-btn" onclick="refreshGroup('${group.id}')">↻</button>
                         <button class="refresh-btn" onclick="toggleGroupSort('${group.id}')">${sortIcon}</button>
                         <button class="refresh-btn" onclick="deleteGroup('${group.id}')" style="font-size:16px;">🗑</button>
                     </div>
                 </div>
-                <div class="group-selected-summary" id="group-summary-${group.id}"></div>
                 <div class="group-stops" id="group-stops-${group.id}"></div>
             `;
 
@@ -644,8 +682,9 @@
                             const byCTB = list.filter(x => x.co === 'CTB').slice(0,3).map(x => ({...x, stop, origIdx}));
                             depResults = depResults.concat(byKMB, byCTB);
                         } else {
-                            // non-joint: include up to 3 upcoming
-                            depResults = depResults.concat(list.slice(0,3).map(x => ({...x, stop, origIdx})));
+                            // non-joint: include up to 3 upcoming, or 4 for MTR
+                            const sliceNum = stop.type === 'mtr' ? 4 : 3;
+                            depResults = depResults.concat(list.slice(0, sliceNum).map(x => ({...x, stop, origIdx})));
                         }
                     });
                     // sort combined results by time and limit to 30 rows
@@ -656,7 +695,7 @@
                         if (i === 0) row.style.backgroundColor = '#e8f5e9';
                         const destLabel = d.dest || d.bound || resolveBusDestination(d.stop) || '';
                         const destHtml = destLabel ? `<div class="saved-dest">${destLabel}</div>` : '';
-                        const etaHtml = `<div class="saved-eta-item">${d.co && (d.stop.co==='JOINT' || (d.stop.kmbId && d.stop.ctbId)) ? `<span class="saved-eta-co ${d.co==='KMB'?'kmb':'ctb'}">${d.co}</span>` : ''}<span class="saved-eta-time">${d.min}min</span><span class="saved-eta-abs">(${d.timeStr})</span></div>`;
+                        const etaHtml = `<div class="saved-eta-item">${d.co && (d.stop.co==='JOINT' || (d.stop.kmbId && d.stop.ctbId)) ? `<span class="saved-eta-co ${d.co==='KMB'?'kmb':'ctb'}">${d.co}</span>` : ''}<div><span class="saved-eta-time">${d.min}min</span><br><span class="saved-eta-abs">(${d.timeStr})</span></div></div>`;
                         
                         let routeStyle = '';
                         if (d.stop.type === 'mtr' && d.stop.line && MTR_LINES[d.stop.line]) {
@@ -680,23 +719,36 @@
                         stopsDiv.appendChild(row);
                     });
                 } else {
-                    // Normal mode: list stops with their ETA block; include selected station line
-                    const etaPromises = group.stops.map((stop, origIdx) => fetchNextEtaForStop(stop).then(t => ({ stop, origIdx, nextEta: t })));
-                    const etaResults = await Promise.all(etaPromises);
-                    etaResults.sort((a, b) => {
-                        const ta = a.nextEta ? a.nextEta.getTime() : Infinity;
-                        const tb = b.nextEta ? b.nextEta.getTime() : Infinity;
-                        return group.sortAsc ? ta - tb : tb - ta;
+                    // Normal mode: list stops sorted by route identifier.
+                    
+                    const stopsWithOrigIdx = group.stops.map((stop, origIdx) => ({ stop, origIdx }));
+
+                    stopsWithOrigIdx.sort((a, b) => {
+                        const stopA = a.stop;
+                        const stopB = b.stop;
+                        const aIsBus = stopA.type === 'bus';
+                        const bIsBus = stopB.type === 'bus';
+
+                        if (aIsBus && !bIsBus) return -1; // Buses first
+                        if (!aIsBus && bIsBus) return 1;  // MTR after
+
+                        if (aIsBus && bIsBus) {
+                            // Both are buses, sort by route number numerically
+                            return (stopA.route || '').localeCompare(stopB.route || '', undefined, { numeric: true });
+                        } else { // Both are MTR
+                            // Sort by line code
+                            return (stopA.line || '').localeCompare(stopB.line || '');
+                        }
                     });
 
-                    etaResults.forEach(entry => {
+                    stopsWithOrigIdx.forEach(entry => {
                         const stop = entry.stop;
                         const idx = entry.origIdx;
                         const stopRow = document.createElement('div');
                         stopRow.className = 'saved-stop-item';
                         const resolvedDest = resolveBusDestination(stop) || '';
-                        const destDisplay = stop.type === 'mtr' ? (stop.dest || '') : (resolvedDest ? ('往 ' + resolvedDest) : '');
-                        const destHtml = destDisplay ? `<div class="saved-dest">${destDisplay}</div>` : '';
+                        const destDisplay = stop.type === 'mtr' ? '' : (resolvedDest ? (resolvedDest) : '');
+                        const destHtml = `<div class="saved-dest">${destDisplay}</div>`;
                         
                         let routeStyle = '';
                         if (stop.type === 'mtr' && stop.line && MTR_LINES[stop.line]) {
@@ -718,19 +770,13 @@
                             <button class="delete-btn" onclick="removeStop('${group.id}', ${idx})">✕</button>
                         `;
                         stopsDiv.appendChild(stopRow);
-                        fetchDashboardEta(stop, `dash-eta-${group.id}-${idx}`);
+                        allNormalModePromises.push(fetchDashboardEta(stop, `dash-eta-${group.id}-${idx}`));
                     });
                 }
             }
-            // populate selected stops summary
-            const summaryEl = groupDiv.querySelector(`#group-summary-${group.id}`) || groupDiv.querySelector('.group-selected-summary');
-            if (summaryEl) {
-                summaryEl.innerText = group.stops && group.stops.length ? group.stops.map(s => s.stopName || s.name || s.dest || s.stopId || '').filter(Boolean).join(' · ') : '未選取站點';
-            }
-
             container.appendChild(groupDiv);
         }
-
+        
         // Add new group button
         const addGroupBtn = document.createElement('div');
         addGroupBtn.style.cssText = 'background:#006c4c;border-radius:12px;padding:16px;margin-bottom:16px;text-align:center;cursor:pointer;color:white;font-weight:500;';
@@ -744,6 +790,8 @@
             }
         };
         container.appendChild(addGroupBtn);
+
+        await Promise.all(allNormalModePromises);
     }
 
     // Helper: return earliest ETA Date object for a stop or null
@@ -754,7 +802,14 @@
                 const json = await res.json();
                 const key = `${stop.line}-${stop.stopId}`;
                 if (!json.data || !json.data[key]) return null;
-                const trains = [...(json.data[key].UP||[]), ...(json.data[key].DOWN||[])];
+                
+                let trains = [];
+                if (stop.dir && (stop.dir === 'UP' || stop.dir === 'DOWN')) {
+                    trains = json.data[key][stop.dir] || [];
+                } else {
+                    trains = [...(json.data[key].UP||[]), ...(json.data[key].DOWN||[])];
+                }
+
                 if (trains.length === 0) return null;
                 const times = trains.map(t => new Date(t.time.replace(/-/g, '/')));
                 return new Date(Math.min(...times.map(d=>d.getTime())));
@@ -779,13 +834,20 @@
                 const json = await res.json();
                 const key = `${stop.line}-${stop.stopId}`;
                 if (!json.data || !json.data[key]) return [];
-                const trains = [...(json.data[key].UP||[]), ...(json.data[key].DOWN||[])];
+                
+                let trains = [];
+                if (stop.dir && (stop.dir === 'UP' || stop.dir === 'DOWN')) {
+                    trains = json.data[key][stop.dir] || [];
+                } else {
+                    trains = [...(json.data[key].UP||[]), ...(json.data[key].DOWN||[])];
+                }
+
                 return trains.map(t => {
                     const dt = new Date(t.time.replace(/-/g, '/'));
                     const min = Math.max(0, Math.floor((dt - new Date())/60000));
-                    const timeStr = dt.toLocaleTimeString('en-GB',{hour12:false});
+                    const timeStr = t.time.split(' ')[1].substr(0, 5);
                     const destName = MTR_STATION_NAMES[t.dest] || t.dest;
-                    const bound = `往 ${destName}`;
+                    const bound = `${destName}`;
                     return { time: dt, timeStr, min, route: stop.route, bound, dest: destName, co: 'MTR' };
                 }).filter(x => x.time);
             } else {
@@ -812,30 +874,53 @@
         userGroups.forEach(g => { if (!g.sortAsc) refreshGroup(g.id); });
     }
 
-    function removeStop(groupId, idx) {
+    async function removeStop(groupId, idx) {
         const group = userGroups.find(g => g.id === groupId);
         if(group) {
             group.stops.splice(idx, 1);
-            saveGroups();
+            await saveGroups();
         }
     }
 
-    function deleteGroup(groupId) {
+    async function deleteGroup(groupId) {
         if(userGroups.length <= 1) { showToast('至少要保留一個群組'); return; }
         if(confirm('確定刪除此群組？')) {
             userGroups = userGroups.filter(g => g.id !== groupId);
-            saveGroups();
+            await saveGroups();
         }
     }
 
     function editGroupName(groupId) {
         const group = userGroups.find(g => g.id === groupId);
         if(!group) return;
-        const newName = prompt('編輯群組名稱:', group.name);
-        if(newName && newName.trim()) {
+        currentEditingGroupId = groupId;
+        const modal = document.getElementById('rename-group-modal');
+        const input = document.getElementById('rename-group-input');
+
+        input.value = group.name;
+        modal.style.display = 'block';
+        input.focus();
+        input.select();
+        
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') saveGroupName();
+            else if (e.key === 'Escape') modal.style.display = 'none';
+        };
+    }
+
+    async function saveGroupName() {
+        if (!currentEditingGroupId) return;
+        const group = userGroups.find(g => g.id === currentEditingGroupId);
+        const modal = document.getElementById('rename-group-modal');
+        const input = document.getElementById('rename-group-input');
+        const newName = input.value.trim();
+        if(group && newName) {
             group.name = newName;
-            saveGroups();
+            await saveGroups();
         }
+        modal.style.display = 'none';
+        currentEditingGroupId = null;
+        input.onkeydown = null;
     }
 
     function refreshGroup(groupId) {
@@ -862,15 +947,31 @@
                 const key = `${stop.line}-${stop.stopId}`;
                 if(json.status === 0 || !json.data[key]) { el.innerHTML = '<div style="color:#999;font-size:12px;">-</div>'; return; }
                 
-                const trains = [...(json.data[key].UP || []), ...(json.data[key].DOWN || [])];
+                let trains = [];
+                if (stop.dir && (stop.dir === 'UP' || stop.dir === 'DOWN')) {
+                    trains = json.data[key][stop.dir] || [];
+                } else {
+                    trains = [...(json.data[key].UP || []), ...(json.data[key].DOWN || [])];
+                }
+
                 if(trains.length > 0) {
+                    const uniqueDests = [...new Set(trains.map(t => MTR_STATION_NAMES[t.dest] || t.dest))].filter(Boolean);
+                    if (uniqueDests.length > 0) {
+                        const destStr = uniqueDests.join('/');
+                        const stopItemElem = el.closest('.saved-stop-item');
+                        if (stopItemElem) {
+                            const destElem = stopItemElem.querySelector('.saved-dest');
+                            if (destElem) destElem.innerText = destStr;
+                        }
+                    }
+
                      let html = '';
                      trains.slice(0, 4).forEach((t, i) => {
                          const min = Math.max(0, Math.floor((new Date(t.time.replace(/-/g, "/")) - new Date())/60000));
-                         const timeStr = new Date(t.time.replace(/-/g, "/")).toLocaleTimeString('en-GB',{hour12:false});
+                         const timeStr = t.time.split(' ')[1].substr(0, 5);
                          const destName = MTR_STATION_NAMES[t.dest] || t.dest;
                          const hl = i === 0 ? 'background-color:#e8f5e9;padding:2px 4px;border-radius:4px;' : '';
-                         html += `<div class="saved-eta-item" style="${hl}"><span class="saved-eta-time">${destName} ${min}min</span><span class="saved-eta-abs">(${timeStr})</span></div>`;
+                         html += `<div class="saved-eta-item" style="${hl}"><div><span class="saved-eta-time">${destName} ${min}min</span><br><span class="saved-eta-abs">(${timeStr})</span></div></div>`;
                      });
                      el.innerHTML = html;
                 } else { el.innerHTML = '<div style="color:#999;font-size:12px;">-</div>'; }
@@ -896,7 +997,7 @@
                             const coClass = e.co === 'KMB' ? (isLWB(stop.route) ? 'lwb' : 'kmb') : 'ctb';
                             const hl = i === 0 ? 'background-color:#e8f5e9;padding:2px 4px;border-radius:4px;' : '';
                             const coHtml = isJoint ? `<span class="saved-eta-co ${coClass}">${e.co}</span>` : '';
-                            html += `<div class="saved-eta-item" style="${hl}">${coHtml}<span class="saved-eta-time">${min}min</span><span class="saved-eta-abs">(${timeStr})</span></div>`;
+                            html += `<div class="saved-eta-item" style="${hl}">${coHtml}<div><span class="saved-eta-time">${min}min</span><br><span class="saved-eta-abs">(${timeStr})</span></div></div>`;
                         });
                         el.innerHTML = html;
                     } else { el.innerHTML = '<div style="color:#999;font-size:12px;">-</div>'; }
@@ -955,23 +1056,24 @@
         stops.forEach((s, i) => {
             const dataStr = encodeURIComponent(JSON.stringify(s)).replace(/'/g, "%27");
             const dotStyle = type==='mtr' ? `style="border-color:${s.color}"` : '';
+            const addBtn = type === 'mtr' ? '' : `<button class="add-stop-btn" onclick="event.stopPropagation(); promptAddToGroup(JSON.parse(decodeURIComponent('${dataStr}')))">＋</button>`;
             html += `
-                <div class="stop-item" data-stop='${dataStr}'
-                    ontouchstart="handleTouchPressStart(this, '${dataStr}', event)"
-                    ontouchend="handleTouchPressEnd(this, '${dataStr}', event)"
-                    ontouchcancel="cancelPress(this)"
-                    onmousedown="handleMousePressStart(this, '${dataStr}')"
-                    onmouseup="handleMousePressEnd(this, '${dataStr}')"
-                    onmouseleave="cancelPress(this)"
-                >
+                <div class="stop-item" data-stop='${dataStr}' onclick="onStopClick(this, '${dataStr}')">
                     <div class="stop-row">
                         <div class="stop-timeline"><div class="stop-dot" ${dotStyle}></div></div>
-                        <div class="stop-name">${s.name}</div>
+                        <div class="stop-name" style="flex:1">${s.name}</div>
+                        ${addBtn}
                     </div>
                     <div class="eta-container"></div>
                 </div>`;
         });
         listDiv.innerHTML = html;
+    }
+
+    function onStopClick(elem, dataStr) {
+        const data = JSON.parse(decodeURIComponent(dataStr));
+        if(data.type === 'mtr') toggleMtrEta(data.line, data.stopId, elem);
+        else toggleBusEta(data.kmbId, data.ctbId, data.route, data.dir, elem);
     }
 
     // --- Long Press & ETA ---
@@ -1004,6 +1106,7 @@
     }
 
     let pendingStopData = null;
+    let currentEditingGroupId = null;
 
     function promptAddToGroup(stopData) {
         pendingStopData = stopData;
@@ -1025,7 +1128,7 @@
         modal.style.display = 'block';
     }
 
-    function addStopToGroup(stopData, groupId) {
+    async function addStopToGroup(stopData, groupId) {
         const targetGroup = userGroups.find(g => g.id === groupId);
         if(!targetGroup) return;
         
@@ -1042,7 +1145,7 @@
         }
 
         targetGroup.stops.push(stopData);
-        saveGroups();
+        await saveGroups();
         showToast(`已加入 ${targetGroup.name}`);
     }
 
@@ -1089,8 +1192,7 @@
                 const ds = encodeURIComponent(JSON.stringify(stopData));
                 
                 html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #eee;margin-top:4px;">
-                            <span style="font-size:12px;font-weight:700;color:#006c4c;">往 ${dest}</span>
-                            <button class="eta-add-btn" data-stop='${ds}' onclick="promptAddToGroup(JSON.parse(decodeURIComponent(this.dataset.stop)))">＋</button>
+                            <span style="font-size:12px;font-weight:700;color:#006c4c;">${dest}</span>
                          </div>`;
                 
                 const isJoint = (kmbId && kmbId !== 'null') && (ctbId && ctbId !== 'null');
@@ -1145,7 +1247,7 @@
                 const ds = encodeURIComponent(JSON.stringify(stopData));
                 
                 html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #eee;margin-top:4px;">
-                            <span style="font-size:12px;font-weight:700;color:#006c4c;">往 ${destName}</span>
+                            <span style="font-size:12px;font-weight:700;color:#006c4c;">${destName}</span>
                             <button class="eta-add-btn" data-stop='${ds}' onclick="promptAddToGroup(JSON.parse(decodeURIComponent(this.dataset.stop)))">＋</button>
                          </div>`;
                 
@@ -1180,6 +1282,65 @@
         setTimeout(refreshAllGroups, 2000);
         setInterval(refreshAllGroups, 30000);
     }
+
+    // --- Pull to Refresh ---
+    function initPullToRefresh() {
+        const view = document.getElementById('view-dashboard');
+        const indicator = document.createElement('div');
+        indicator.id = 'ptr-indicator';
+        indicator.innerHTML = `<span class="ptr-text">下拉刷新</span>`;
+        view.prepend(indicator);
+
+        let startY = 0;
+        let pullDistance = 0;
+        let isRefreshing = false;
+        const threshold = 80;
+        const resistance = 2.5;
+
+        document.body.addEventListener('touchstart', e => {
+            if (isRefreshing || !view.classList.contains('active') || document.documentElement.scrollTop > 0) {
+                return;
+            }
+            startY = e.touches[0].clientY;
+            view.style.transition = 'none';
+        }, { passive: true });
+
+        document.body.addEventListener('touchmove', e => {
+            if (startY === 0 || isRefreshing) return;
+
+            const currentY = e.touches[0].clientY;
+            pullDistance = currentY - startY;
+
+            if (pullDistance > 0 && document.documentElement.scrollTop === 0) {
+                e.preventDefault();
+                const resistedPull = pullDistance / resistance;
+                view.style.transform = `translateY(${resistedPull}px)`;
+                indicator.querySelector('.ptr-text').innerText = resistedPull > threshold ? '松开即可刷新' : '下拉刷新';
+            }
+        }, { passive: false });
+
+        document.body.addEventListener('touchend', e => {
+            if (startY === 0 || isRefreshing) return;
+
+            const resistedPull = pullDistance / resistance;
+            view.style.transition = 'transform 0.3s';
+
+            if (resistedPull > threshold) {
+                isRefreshing = true;
+                view.style.transform = `translateY(${threshold / resistance}px)`;
+                indicator.querySelector('.ptr-text').innerText = '刷新中...';
+                renderDashboard().finally(() => {
+                    view.style.transform = 'translateY(0)';
+                    setTimeout(() => { isRefreshing = false; startY = 0; pullDistance = 0; }, 300);
+                });
+            } else {
+                view.style.transform = 'translateY(0)';
+                startY = 0;
+                pullDistance = 0;
+            }
+        });
+    }
+    initPullToRefresh();
 </script>
 
 </body>
